@@ -140,7 +140,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// +kubebuilder:scaffold:builder
+	// +kubebuilder:scaffold:builderSchemeBuilder
 
 	stopCh := ctrl.SetupSignalHandler()
 	setupLog.Info("initialize webhook")

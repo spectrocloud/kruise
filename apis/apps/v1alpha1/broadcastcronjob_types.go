@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -40,6 +41,14 @@ type BroadcastCronJobSpec struct {
 	// +optional
 	CompletionPolicy CompletionPolicy `json:"completionPolicy" protobuf:"bytes,4,opt,name=completionPolicy"`
 
+	// Specifies how to treat concurrent executions of a Job.
+	// Valid values are:
+	// - "Allow" (default): allows CronJobs to run concurrently;
+	// - "Forbid": forbids concurrent runs, skipping next run if previous run hasn't finished yet;
+	// - "Replace": cancels currently running job and replaces it with a new one
+	// +optional
+	ConcurrencyPolicy ConcurrencyPolicy `json:"concurrencyPolicy,omitempty"`
+
 	// Paused will pause the job.
 	// +optional
 	Paused bool `json:"paused,omitempty" protobuf:"bytes,5,opt,name=paused"`
@@ -47,47 +56,39 @@ type BroadcastCronJobSpec struct {
 	// FailurePolicy indicates the behavior of the job, when failed pod is found.
 	// +optional
 	FailurePolicy FailurePolicy `json:"failurePolicy,omitempty" protobuf:"bytes,6,opt,name=failurePolicy"`
+
+	// +kubebuilder:validation:Minimum=0
+
+	// The number of failed finished jobs to retain.
+	// This is a pointer to distinguish between explicit zero and not specified.
+	// +optional
+	FailedJobsHistoryLimit *int32 `json:"failedJobsHistoryLimit,omitempty"`
+
+	// +kubebuilder:validation:Minimum=0
+
+	// The number of successful finished jobs to retain.
+	// This is a pointer to distinguish between explicit zero and not specified.
+	// +optional
+	SuccessfulJobsHistoryLimit *int32 `json:"successfulJobsHistoryLimit,omitempty"`
+
+	// Optional deadline in seconds for starting the job if it misses scheduled
+	// time for any reason.  Missed jobs executions will be counted as failed ones.
+	// +optional
+	StartingDeadlineSeconds *int64 `json:"startingDeadlineSeconds,omitempty"`
 }
 
 // BroadcastCronJobStatus defines the observed state of BroadcastCronJob
 type BroadcastCronJobStatus struct {
-	// The latest available observations of an object's current state.
-	// +optional
-	// +patchMergeKey=type
-	// +patchStrategy=merge
-	Conditions []JobCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
 
-	// Represents time when the job was acknowledged by the job controller.
-	// It is not guaranteed to be set in happens-before order across separate operations.
-	// It is represented in RFC3339 form and is in UTC.
+	// A list of pointers to currently running jobs.
 	// +optional
-	StartTime *metav1.Time `json:"startTime,omitempty" protobuf:"bytes,2,opt,name=startTime"`
+	Active []corev1.ObjectReference `json:"active,omitempty"`
 
-	// Represents time when the job was completed. It is not guaranteed to
-	// be set in happens-before order across separate operations.
-	// It is represented in RFC3339 form and is in UTC.
+	// Information when was the last time the job was successfully scheduled.
 	// +optional
-	CompletionTime *metav1.Time `json:"completionTime,omitempty" protobuf:"bytes,3,opt,name=completionTime"`
-
-	// The number of actively running pods.
-	// +optional
-	Active int32 `json:"active" protobuf:"varint,4,opt,name=active"`
-
-	// The number of pods which reached phase Succeeded.
-	// +optional
-	Succeeded int32 `json:"succeeded" protobuf:"varint,5,opt,name=succeeded"`
-
-	// The number of pods which reached phase Failed.
-	// +optional
-	Failed int32 `json:"failed" protobuf:"varint,6,opt,name=failed"`
-
-	// The desired number of pods, this is typically equal to the number of nodes satisfied to run pods.
-	// +optional
-	Desired int32 `json:"desired" protobuf:"varint,7,opt,name=desired"`
-
-	// The phase of the job.
-	// +optional
-	Phase BroadcastCronJobPhase `json:"phase" protobuf:"varint,8,opt,name=phase"`
+	LastScheduleTime *metav1.Time `json:"lastScheduleTime,omitempty"`
 }
 
 type BroadcastCronJobPhase string
@@ -102,6 +103,25 @@ const (
 
 	// PhaseFailed means the job is failed.
 	CronPhaseFailed BroadcastCronJobPhase = "failed"
+)
+
+// ConcurrencyPolicy describes how the job will be handled.
+// Only one of the following concurrent policies may be specified.
+// If none of the following policies is specified, the default one
+// is AllowConcurrent.
+// +kubebuilder:validation:Enum=Allow;Forbid;Replace
+type ConcurrencyPolicy string
+
+const (
+	// AllowConcurrent allows CronJobs to run concurrently.
+	AllowConcurrent ConcurrencyPolicy = "Allow"
+
+	// ForbidConcurrent forbids concurrent runs, skipping next run if previous
+	// hasn't finished yet.
+	ForbidConcurrent ConcurrencyPolicy = "Forbid"
+
+	// ReplaceConcurrent cancels currently running job and replaces it with a new one.
+	ReplaceConcurrent ConcurrencyPolicy = "Replace"
 )
 
 // +kubebuilder:object:root=true
