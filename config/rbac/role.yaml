@@ -65,6 +65,26 @@ rules:
 - apiGroups:
   - apps.kruise.io
   resources:
+  - broadcastcronjobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.kruise.io
+  resources:
+  - broadcastcronjobs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.kruise.io
+  resources:
   - broadcastjobs
   verbs:
   - create

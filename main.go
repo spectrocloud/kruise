@@ -21,12 +21,10 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"time"
 
 	"k8s.io/kubernetes/pkg/capabilities"
 
-	extclient "github.com/openkruise/kruise/pkg/client"
-	"github.com/openkruise/kruise/pkg/util/fieldindex"
-	"github.com/openkruise/kruise/pkg/webhook"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -34,6 +32,10 @@ import (
 	"k8s.io/klog"
 	"k8s.io/klog/klogr"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	extclient "github.com/openkruise/kruise/pkg/client"
+	"github.com/openkruise/kruise/pkg/util/fieldindex"
+	"github.com/openkruise/kruise/pkg/webhook"
 
 	appsv1alpha1 "github.com/openkruise/kruise/apis/apps/v1alpha1"
 	"github.com/openkruise/kruise/pkg/controller"
@@ -97,6 +99,7 @@ func main() {
 	cfg := ctrl.GetConfigOrDie()
 	setRestConfig(cfg)
 
+	syncPeriod := 2 * time.Minute
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                  scheme,
 		MetricsBindAddress:      metricsAddr,
@@ -105,6 +108,7 @@ func main() {
 		LeaderElectionID:        "kruise-manager",
 		LeaderElectionNamespace: leaderElectionNamespace,
 		Namespace:               namespace,
+		SyncPeriod:              &syncPeriod,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

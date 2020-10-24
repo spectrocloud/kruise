@@ -24,3 +24,4 @@ bin
 *~
 
 .DS_Store
+.temp

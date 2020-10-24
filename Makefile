@@ -60,7 +60,7 @@ generate: controller-gen
 
 # Build the docker image
 docker-build: test
-	docker build --pull --no-cache . -t ${IMG}
+	docker build . -t ${IMG}
 
 # Push the docker image
 docker-push:
