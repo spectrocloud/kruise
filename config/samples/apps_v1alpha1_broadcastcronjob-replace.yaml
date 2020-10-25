@@ -5,6 +5,9 @@ metadata:
 spec:
   schedule: "* * * * *"
   concurrencyPolicy: Replace
+  paused: false
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
   broadcastJobTemplate:
     spec:
       template:
