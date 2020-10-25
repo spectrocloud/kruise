@@ -33,6 +33,26 @@ rules:
 - apiGroups:
   - apps
   resources:
+  - broadcastcronjobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - broadcastcronjobs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
   - controllerrevisions
   verbs:
   - create

@@ -1,0 +1,22 @@
+apiVersion: apps.kruise.io/v1alpha1
+kind: BroadcastCronJob
+metadata:
+  name: broadcastcronjob-sample
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Replace
+  broadcastJobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: hello
+              image: busybox
+              args:
+                - /bin/sh
+                - -c
+                - date; echo "Hello from the BroadcastCronJob - SpectroCloud"
+          restartPolicy: Never
+      completionPolicy:
+        type: Always
+        activeDeadlineSeconds: 200
