@@ -18,28 +18,17 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // BroadcastCronJobSpec defines the desired state of BroadcastCronJob
 type BroadcastCronJobSpec struct {
 	Schedule string `json:"schedule" protobuf:"bytes,1,opt,name=schedule"`
-	// Parallelism specifies the maximum desired number of pods the job should
-	// run at any given time. The actual number of pods running in steady state will
-	// be less than this number when the work left to do is less than max parallelism.
-	// Not setting this value means no limit.
-	// +optional
-	Parallelism *intstr.IntOrString `json:"parallelism,omitempty" protobuf:"varint,2,opt,name=parallelism"`
 
-	// Template describes the pod that will be created when executing a job.
-	Template v1.PodTemplateSpec `json:"template" protobuf:"bytes,3,opt,name=template"`
-
-	// CompletionPolicy indicates the completion policy of the job.
-	// Default is Always CompletionPolicyType
+	// Optional deadline in seconds for starting the job if it misses scheduled
+	// time for any reason.  Missed jobs executions will be counted as failed ones.
 	// +optional
-	CompletionPolicy CompletionPolicy `json:"completionPolicy" protobuf:"bytes,4,opt,name=completionPolicy"`
+	StartingDeadlineSeconds *int64 `json:"startingDeadlineSeconds,omitempty" protobuf:"varint,2,opt,name=startingDeadlineSeconds"`
 
 	// Specifies how to treat concurrent executions of a Job.
 	// Valid values are:
@@ -47,34 +36,39 @@ type BroadcastCronJobSpec struct {
 	// - "Forbid": forbids concurrent runs, skipping next run if previous run hasn't finished yet;
 	// - "Replace": cancels currently running job and replaces it with a new one
 	// +optional
-	ConcurrencyPolicy ConcurrencyPolicy `json:"concurrencyPolicy,omitempty"`
+	ConcurrencyPolicy ConcurrencyPolicy `json:"concurrencyPolicy,omitempty" protobuf:"bytes,3,opt,name=concurrencyPolicy"`
 
-	// Paused will pause the job.
+	// Paused will pause the cron job.
 	// +optional
-	Paused bool `json:"paused,omitempty" protobuf:"bytes,5,opt,name=paused"`
+	Paused bool `json:"paused,omitempty" protobuf:"bytes,4,opt,name=paused"`
 
-	// FailurePolicy indicates the behavior of the job, when failed pod is found.
-	// +optional
-	FailurePolicy FailurePolicy `json:"failurePolicy,omitempty" protobuf:"bytes,6,opt,name=failurePolicy"`
-
-	// +kubebuilder:validation:Minimum=0
-
-	// The number of failed finished jobs to retain.
-	// This is a pointer to distinguish between explicit zero and not specified.
-	// +optional
-	FailedJobsHistoryLimit *int32 `json:"failedJobsHistoryLimit,omitempty"`
+	// Specifies the broadcastjob that will be created when executing a BroadcastCronJob.
+	BroadcastJobTemplate BroadcastJobTemplateSpec `json:"broadcastJobTemplate" protobuf:"bytes,5,opt,name=broadcastJobTemplate"`
 
 	// +kubebuilder:validation:Minimum=0
 
 	// The number of successful finished jobs to retain.
 	// This is a pointer to distinguish between explicit zero and not specified.
 	// +optional
-	SuccessfulJobsHistoryLimit *int32 `json:"successfulJobsHistoryLimit,omitempty"`
+	SuccessfulJobsHistoryLimit *int32 `json:"successfulJobsHistoryLimit,omitempty" protobuf:"varint,6,opt,name=successfulJobsHistoryLimit"`
 
-	// Optional deadline in seconds for starting the job if it misses scheduled
-	// time for any reason.  Missed jobs executions will be counted as failed ones.
+	// +kubebuilder:validation:Minimum=0
+
+	// The number of failed finished jobs to retain.
+	// This is a pointer to distinguish between explicit zero and not specified.
 	// +optional
-	StartingDeadlineSeconds *int64 `json:"startingDeadlineSeconds,omitempty"`
+	FailedJobsHistoryLimit *int32 `json:"failedJobsHistoryLimit,omitempty" protobuf:"varint,7,opt,name=failedJobsHistoryLimit"`
+}
+
+// JobTemplateSpec describes the data a Job should have when created from a template
+type BroadcastJobTemplateSpec struct {
+	// Standard object's metadata of the jobs created from this template.
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Specification of the desired behavior of the broadcastjob.
+	// +optional
+	Spec BroadcastJobSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 }
 
 // BroadcastCronJobStatus defines the observed state of BroadcastCronJob
@@ -90,20 +84,6 @@ type BroadcastCronJobStatus struct {
 	// +optional
 	LastScheduleTime *metav1.Time `json:"lastScheduleTime,omitempty"`
 }
-
-type BroadcastCronJobPhase string
-
-const (
-
-	// PhaseRunning means the job is running.
-	CronPhaseRunning BroadcastCronJobPhase = "running"
-
-	// PhasePaused means the job is paused.
-	CronPhasePaused BroadcastCronJobPhase = "scheduled"
-
-	// PhaseFailed means the job is failed.
-	CronPhaseFailed BroadcastCronJobPhase = "failed"
-)
 
 // ConcurrencyPolicy describes how the job will be handled.
 // Only one of the following concurrent policies may be specified.

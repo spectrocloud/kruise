@@ -504,33 +504,27 @@ func (r *ReconcileBroadcastCronJob) Reconcile(req ctrl.Request) (ctrl.Result, er
 		to clean up jobs when we delete the CronJob, and allows controller-runtime to figure out
 		which cronjob needs to be reconciled when a given job changes (is added, deleted, completes, etc).
 	*/
-	constructBrJobForCronJob := func(cronJob *appsv1alpha1.BroadcastCronJob, scheduledTime time.Time) (*appsv1alpha1.BroadcastJob, error) {
+	constructBrJobForCronJob := func(brCronJob *appsv1alpha1.BroadcastCronJob, scheduledTime time.Time) (*appsv1alpha1.BroadcastJob, error) {
 		// We want job names for a given nominal start time to have a deterministic name to avoid the same job being created twice
-		name := fmt.Sprintf("%s-%d", cronJob.Name, scheduledTime.Unix())
+		name := fmt.Sprintf("%s-%d", brCronJob.Name, scheduledTime.Unix())
 
 		job := &appsv1alpha1.BroadcastJob{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels:      make(map[string]string),
 				Annotations: make(map[string]string),
 				Name:        name,
-				Namespace:   cronJob.Namespace,
+				Namespace:   brCronJob.Namespace,
 			},
-			Spec: appsv1alpha1.BroadcastJobSpec{
-				Parallelism:      cronJob.Spec.Parallelism,
-				Template:         cronJob.Spec.Template,
-				CompletionPolicy: cronJob.Spec.CompletionPolicy,
-				Paused:           false,
-				FailurePolicy:    cronJob.Spec.FailurePolicy,
-			},
+			Spec: *brCronJob.Spec.BroadcastJobTemplate.Spec.DeepCopy(),
 		}
-		for k, v := range cronJob.Spec.Template.Annotations {
+		for k, v := range brCronJob.Spec.BroadcastJobTemplate.Annotations {
 			job.Annotations[k] = v
 		}
 		job.Annotations[scheduledTimeAnnotation] = scheduledTime.Format(time.RFC3339)
-		for k, v := range cronJob.Spec.Template.Labels {
+		for k, v := range brCronJob.Spec.BroadcastJobTemplate.Labels {
 			job.Labels[k] = v
 		}
-		if err := ctrl.SetControllerReference(cronJob, job, r.scheme); err != nil {
+		if err := ctrl.SetControllerReference(brCronJob, job, r.scheme); err != nil {
 			return nil, err
 		}
 
