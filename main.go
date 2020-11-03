@@ -37,6 +37,7 @@ import (
 
 	appsv1alpha1 "github.com/openkruise/kruise/apis/apps/v1alpha1"
 	appsv1beta1 "github.com/openkruise/kruise/apis/apps/v1beta1"
+	appscontroller "github.com/openkruise/kruise/controllers/apps"
 	"github.com/openkruise/kruise/pkg/controller"
 	// +kubebuilder:scaffold:imports
 )
@@ -139,6 +140,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&appscontroller.AdvancedCronJobReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("AdvancedCronJob"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AdvancedCronJob")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	stopCh := ctrl.SetupSignalHandler()
