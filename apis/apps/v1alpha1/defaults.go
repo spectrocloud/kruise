@@ -21,7 +21,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/kubernetes/pkg/apis/core/v1"
+	v1 "k8s.io/kubernetes/pkg/apis/core/v1"
 	utilpointer "k8s.io/utils/pointer"
 )
 
@@ -90,6 +90,13 @@ func setSidecarDefaultContainer(sidecarContainer *SidecarContainer) {
 			}
 		}
 	}
+}
+
+// SetDefaults_BroadcastJob set default values for BroadcastJob.
+func SetDefaultsAdvancedCronJob(obj *AdvancedCronJob) {
+
+	//TODO
+
 }
 
 // SetDefaults_BroadcastJob set default values for BroadcastJob.

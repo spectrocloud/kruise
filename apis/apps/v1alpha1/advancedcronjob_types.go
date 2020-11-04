@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -25,17 +27,97 @@ import (
 
 // AdvancedCronJobSpec defines the desired state of AdvancedCronJob
 type AdvancedCronJobSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Schedule string `json:"schedule" protobuf:"bytes,1,opt,name=schedule"`
 
-	// Foo is an example field of AdvancedCronJob. Edit AdvancedCronJob_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Optional deadline in seconds for starting the job if it misses scheduled
+	// time for any reason.  Missed jobs executions will be counted as failed ones.
+	// +optional
+	StartingDeadlineSeconds *int64 `json:"startingDeadlineSeconds,omitempty" protobuf:"varint,2,opt,name=startingDeadlineSeconds"`
+
+	// Specifies how to treat concurrent executions of a Job.
+	// Valid values are:
+	// - "Allow" (default): allows CronJobs to run concurrently;
+	// - "Forbid": forbids concurrent runs, skipping next run if previous run hasn't finished yet;
+	// - "Replace": cancels currently running job and replaces it with a new one
+	// +optional
+	ConcurrencyPolicy ConcurrencyPolicy `json:"concurrencyPolicy,omitempty" protobuf:"bytes,3,opt,name=concurrencyPolicy"`
+
+	// Paused will pause the cron job.
+	// +optional
+	Paused bool `json:"paused,omitempty" protobuf:"bytes,4,opt,name=paused"`
+
+	// +kubebuilder:validation:Minimum=0
+
+	// The number of successful finished jobs to retain.
+	// This is a pointer to distinguish between explicit zero and not specified.
+	// +optional
+	SuccessfulJobsHistoryLimit *int32 `json:"successfulJobsHistoryLimit,omitempty" protobuf:"varint,5,opt,name=successfulJobsHistoryLimit"`
+
+	// +kubebuilder:validation:Minimum=0
+
+	// The number of failed finished jobs to retain.
+	// This is a pointer to distinguish between explicit zero and not specified.
+	// +optional
+	FailedJobsHistoryLimit *int32 `json:"failedJobsHistoryLimit,omitempty" protobuf:"varint,6,opt,name=failedJobsHistoryLimit"`
+
+	// Specifies the job that will be created when executing a CronJob.
+	// +optional
+	//Either JobTemplateSpec or BroadcastJobTemplateSpec should be present in spec. Thus it is optional.
+	JobTemplate *batchv1beta1.JobTemplateSpec `json:"jobTemplate" protobuf:"bytes,7,opt,name=jobTemplate"`
+
+	// Specifies the broadcastjob that will be created when executing a BroadcastCronJob.
+	// +optional
+	BroadcastJobTemplate *BroadcastJobTemplateSpec `json:"broadcastJobTemplate" protobuf:"bytes,8,opt,name=broadcastJobTemplate"`
 }
+
+type TemplateKind string
+
+const (
+	JobTemplate TemplateKind = "Job"
+
+	BroadcastJobTemplate TemplateKind = "BroadcastJob"
+)
+
+// JobTemplateSpec describes the data a Job should have when created from a template
+type BroadcastJobTemplateSpec struct {
+	// Standard object's metadata of the jobs created from this template.
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Specification of the desired behavior of the broadcastjob.
+	// +optional
+	Spec BroadcastJobSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+}
+
+// ConcurrencyPolicy describes how the job will be handled.
+// Only one of the following concurrent policies may be specified.
+// If none of the following policies is specified, the default one
+// is AllowConcurrent.
+// +kubebuilder:validation:Enum=Allow;Forbid;Replace
+type ConcurrencyPolicy string
+
+const (
+	// AllowConcurrent allows CronJobs to run concurrently.
+	AllowConcurrent ConcurrencyPolicy = "Allow"
+
+	// ForbidConcurrent forbids concurrent runs, skipping next run if previous
+	// hasn't finished yet.
+	ForbidConcurrent ConcurrencyPolicy = "Forbid"
+
+	// ReplaceConcurrent cancels currently running job and replaces it with a new one.
+	ReplaceConcurrent ConcurrencyPolicy = "Replace"
+)
 
 // AdvancedCronJobStatus defines the observed state of AdvancedCronJob
 type AdvancedCronJobStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+
+	// A list of pointers to currently running jobs.
+	// +optional
+	Active []corev1.ObjectReference `json:"active,omitempty"`
+
+	// Information when was the last time the job was successfully scheduled.
+	// +optional
+	LastScheduleTime *metav1.Time `json:"lastScheduleTime,omitempty"`
 }
 
 // +kubebuilder:object:root=true
