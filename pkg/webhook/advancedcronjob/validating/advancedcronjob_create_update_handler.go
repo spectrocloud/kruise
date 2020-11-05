@@ -18,22 +18,17 @@ package validating
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 
 	corevalidation "k8s.io/kubernetes/pkg/apis/core/validation"
 
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog"
 
 	appsv1alpha1 "github.com/openkruise/kruise/apis/apps/v1alpha1"
 	v1 "k8s.io/api/core/v1"
@@ -42,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/kubernetes/pkg/apis/core"
 	corev1 "k8s.io/kubernetes/pkg/apis/core/v1"
+	apivalidation "k8s.io/kubernetes/pkg/apis/core/validation"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -57,19 +53,17 @@ var (
 
 // AdvancedCronJobCreateUpdateHandler handles AdvancedCronJob
 type AdvancedCronJobCreateUpdateHandler struct {
-	Client client.Client
+	//Client client.Client
 
 	// Decoder decodes objects
 	Decoder *admission.Decoder
 }
 
 func (h *AdvancedCronJobCreateUpdateHandler) validatingAdvancedCronJobFn(ctx context.Context, obj *appsv1alpha1.AdvancedCronJob) (bool, string, error) {
-	klog.Info("---------- validatingAdvancedCronJobFn")
 	allErrs := h.validateAdvancedCronJob(obj)
 	if len(allErrs) != 0 {
 		return false, "", allErrs.ToAggregate()
 	}
-	klog.Info("---------- VALID validatingAdvancedCronJobFn")
 	return true, "allowed to be admitted", nil
 }
 
@@ -80,14 +74,9 @@ func (h *AdvancedCronJobCreateUpdateHandler) validateAdvancedCronJob(obj *appsv1
 }
 
 func validateAdvancedCronJobSpec(spec *appsv1alpha1.AdvancedCronJobSpec, fldPath *field.Path) field.ErrorList {
-	klog.Info("---------- VALID validateAdvancedCronJobSpec")
 	allErrs := field.ErrorList{}
 
-	out, _ := json.Marshal(spec)
-	klog.Info(fmt.Sprintf("---------- VALID validateAdvancedCronJobSpec : %s", string(out)))
-	//validate multiple template
 	templateCount := 0
-
 	if spec.JobTemplate != nil {
 		templateCount++
 		allErrs = append(allErrs, validateJobTemplateSpec(spec.JobTemplate, fldPath)...)
@@ -98,15 +87,17 @@ func validateAdvancedCronJobSpec(spec *appsv1alpha1.AdvancedCronJobSpec, fldPath
 		allErrs = append(allErrs, validateBroadcastJobTemplateSpec(spec.BroadcastJobTemplate, fldPath)...)
 	}
 
-	klog.Info(fmt.Sprintf("---------- VALID templateCount : %d", templateCount))
 	if templateCount > 1 {
-		klog.Info(fmt.Sprintf("---------- INVALID templateCount : %d", templateCount))
-		allErrs = append(allErrs, field.Invalid(fldPath.Child("spec").Child(""),
-			spec,
-			"only one template can be present for cron task"))
+		allErrs = append(allErrs, field.Forbidden(fldPath.Child("spec"),
+			"spec can have only one template, either JobTemplate or BroadcastJobTemplate should be provided"))
 	}
 
-	klog.Info("---------- validateAdvancedCronJobSpec")
+	if len(spec.Schedule) == 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("spec").Child("schedule"),
+			spec.Schedule,
+			"schedule cannot be empty, please provide valid cron schedule."))
+	}
+
 	return allErrs
 }
 
@@ -149,26 +140,18 @@ func validateAdvancedCronJobName(name string, prefix bool) (allErrs []string) {
 }
 
 func (h *AdvancedCronJobCreateUpdateHandler) validateAdvancedCronJobUpdate(obj, oldObj *appsv1alpha1.AdvancedCronJob) field.ErrorList {
-	allErrs := genericvalidation.ValidateObjectMeta(&obj.ObjectMeta, true, validateAdvancedCronJobName, field.NewPath("metadata"))
+	allErrs := apivalidation.ValidateObjectMetaUpdate(&obj.ObjectMeta, &oldObj.ObjectMeta, field.NewPath("metadata"))
 
-	//check if advanved cron job exists
-	namespacedName := types.NamespacedName{
-		Namespace: obj.Namespace,
-		Name:      obj.Name,
+	advanceCronJob := obj.DeepCopy()
+	advanceCronJob.Spec.Schedule = oldObj.Spec.Schedule
+	advanceCronJob.Spec.ConcurrencyPolicy = oldObj.Spec.ConcurrencyPolicy
+	advanceCronJob.Spec.SuccessfulJobsHistoryLimit = oldObj.Spec.SuccessfulJobsHistoryLimit
+	advanceCronJob.Spec.FailedJobsHistoryLimit = oldObj.Spec.FailedJobsHistoryLimit
+	advanceCronJob.Spec.StartingDeadlineSeconds = oldObj.Spec.StartingDeadlineSeconds
+	advanceCronJob.Spec.Paused = oldObj.Spec.Paused
+	if !apiequality.Semantic.DeepEqual(advanceCronJob.Spec, oldObj.Spec) {
+		allErrs = append(allErrs, field.Forbidden(field.NewPath("spec"), "updates to advancedcronjob spec for fields other than 'schedule', 'concurrencyPolicy', 'successfulJobsHistoryLimit', 'failedJobsHistoryLimit', 'startingDeadlineSeconds' and 'paused' are forbidden"))
 	}
-
-	var advancedCronJob appsv1alpha1.AdvancedCronJob
-
-	if err := h.Client.Get(context.Background(), namespacedName, &advancedCronJob); err != nil {
-		klog.Error(err, "unable to fetch CronJob")
-		// we'll ignore not-found errors, since they can't be fixed by an immediate
-		// requeue (we'll need to wait for a new notification), and we can get them
-		// on deleted requests.
-		allErrs = append(allErrs, field.InternalError(field.NewPath("object"), err))
-		return allErrs
-	}
-
-	allErrs = append(allErrs, validateAdvancedCronJobSpec(&obj.Spec, field.NewPath("spec"))...)
 	return allErrs
 }
 
@@ -176,14 +159,12 @@ var _ admission.Handler = &AdvancedCronJobCreateUpdateHandler{}
 
 // Handle handles admission requests.
 func (h *AdvancedCronJobCreateUpdateHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
-	klog.Info("---------- VALIDATOR Handle 1")
 	obj := &appsv1alpha1.AdvancedCronJob{}
 
 	err := h.Decoder.Decode(req, obj)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
-	klog.Info("---------- VALIDATOR Handle before switch")
 	switch req.AdmissionRequest.Operation {
 	case admissionv1beta1.Create:
 		if allErrs := h.validateAdvancedCronJob(obj); len(allErrs) > 0 {
@@ -203,13 +184,13 @@ func (h *AdvancedCronJobCreateUpdateHandler) Handle(ctx context.Context, req adm
 	return admission.ValidationResponse(true, "")
 }
 
-var _ inject.Client = &AdvancedCronJobCreateUpdateHandler{}
-
-// InjectClient injects the client into the AdvancedCronJobCreateUpdateHandler
-func (h *AdvancedCronJobCreateUpdateHandler) InjectClient(c client.Client) error {
-	h.Client = c
-	return nil
-}
+//var _ inject.Client = &AdvancedCronJobCreateUpdateHandler{}
+//
+//// InjectClient injects the client into the AdvancedCronJobCreateUpdateHandler
+//func (h *AdvancedCronJobCreateUpdateHandler) InjectClient(c client.Client) error {
+//	h.Client = c
+//	return nil
+//}
 
 var _ admission.DecoderInjector = &AdvancedCronJobCreateUpdateHandler{}
 
