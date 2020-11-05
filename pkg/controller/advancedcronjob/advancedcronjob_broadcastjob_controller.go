@@ -6,16 +6,53 @@ import (
 	"sort"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+
 	"github.com/go-logr/logr"
 	appsv1alpha1 "github.com/openkruise/kruise/apis/apps/v1alpha1"
 	"github.com/robfig/cron"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	ref "k8s.io/client-go/tools/reference"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
+
+func hookBroadcastJobIndexer(mgr manager.Manager, c controller.Controller) error {
+	if err := mgr.GetFieldIndexer().IndexField(&appsv1alpha1.BroadcastJob{}, jobOwnerKey, func(rawObj runtime.Object) []string {
+		// grab the job object, extract the owner...
+		job := rawObj.(*appsv1alpha1.BroadcastJob)
+		owner := metav1.GetControllerOf(job)
+		if owner == nil {
+			return nil
+		}
+
+		// ...make sure it's a CronJob...
+		if owner.APIVersion != apiGVStr || owner.Kind != appsv1alpha1.AdvancedCronJobKind {
+			return nil
+		}
+
+		// ...and if so, return it
+		return []string{owner.Name}
+	}); err != nil {
+		return err
+	}
+
+	if err := c.Watch(&source.Kind{Type: &appsv1alpha1.BroadcastJob{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &appsv1alpha1.AdvancedCronJob{},
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func (r *ReconcileAdvancedCronJob) reconcileBroadcastJob(ctx context.Context, log logr.Logger, advancedCronJob appsv1alpha1.AdvancedCronJob) (ctrl.Result, error) {
 	var childJobs appsv1alpha1.BroadcastJobList

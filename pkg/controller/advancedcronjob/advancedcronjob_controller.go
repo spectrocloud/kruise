@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"github.com/openkruise/kruise/pkg/util/gate"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -42,57 +41,40 @@ import (
 	appsv1alpha1 "github.com/openkruise/kruise/apis/apps/v1alpha1"
 )
 
+type IndexerFunc func(manager.Manager) error
+
 func init() {
 	flag.IntVar(&concurrentReconciles, "AdvancedCronJob-workers", concurrentReconciles, "Max concurrent workers for AdvancedCronJob controller.")
+	indexerArr = make([]IndexerFunc, 0, 1)
+
 }
 
 var (
 	concurrentReconciles = 3
-	controllerKind       = appsv1alpha1.SchemeGroupVersion.WithKind("AdvancedCronJob")
+	controllerKind       = appsv1alpha1.SchemeGroupVersion.WithKind(appsv1alpha1.AdvancedCronJobKind)
 	jobOwnerKey          = ".metadata.controller"
 	apiGVStr             = appsv1alpha1.GroupVersion.String()
+	indexerArr           []IndexerFunc
 )
 
 // Add creates a new AdvancedCronJob Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
-	klog.Info("Checking Resource enabled AdvancedCronJob")
 	if !gate.ResourceEnabled(&appsv1alpha1.AdvancedCronJob{}) {
-		klog.Info("Resource not enabled AdvancedCronJob")
 		return nil
 	}
+	return add(mgr, newReconciler(mgr))
+}
 
-	//if err := mgr.GetFieldIndexer().IndexField(&appsv1alpha1.BroadcastJob{}, jobOwnerKey, func(rawObj runtime.Object) []string {
-	//	// grab the job object, extract the owner...
-	//	job := rawObj.(*appsv1alpha1.BroadcastJob)
-	//	owner := metav1.GetControllerOf(job)
-	//	if owner == nil {
-	//		return nil
-	//	}
-	//	// ...make sure it's a CronJob...
-	//	if owner.APIVersion != apiGVStr || owner.Kind != "AdvancedCronJob" {
-	//		return nil
-	//	}
-	//
-	//	// ...and if so, return it
-	//	return []string{owner.Name}
-	//}); err != nil {
-	//	return err
-	//}
-	//
-
-	recorder := mgr.GetEventRecorderFor("AdvancedCronJob-controller")
-	if err := (&ReconcileAdvancedCronJob{
+func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+	recorder := mgr.GetEventRecorderFor("broadcastjob-controller")
+	return &ReconcileAdvancedCronJob{
 		Client:   mgr.GetClient(),
 		scheme:   mgr.GetScheme(),
 		recorder: recorder,
-		Log:      ctrl.Log.WithName("controllers").WithName("AdvancedCronJob"),
+		Log:      ctrl.Log.WithName("controllers").WithName(appsv1alpha1.AdvancedCronJobKind),
 		Clock:    realClock{},
-	}).SetupWithManager(mgr); err != nil {
-		klog.Error(err, "unable to create controller", "controller", "SpectroClusterAction")
-		return err
 	}
-	return nil
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -105,24 +87,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	if err := mgr.GetFieldIndexer().IndexField(&appsv1alpha1.BroadcastJob{}, jobOwnerKey, func(rawObj runtime.Object) []string {
-		// grab the job object, extract the owner...
-		job := rawObj.(*appsv1alpha1.BroadcastJob)
-		owner := metav1.GetControllerOf(job)
-		if owner == nil {
-			return nil
-		}
-		// ...make sure it's a CronJob...
-		if owner.APIVersion != apiGVStr || owner.Kind != "AdvancedCronJob" {
-			return nil
-		}
-
-		// ...and if so, return it
-		return []string{owner.Name}
-	}); err != nil {
-		return err
-	}
-
 	// Watch for changes to AdvancedCronJob
 	err = c.Watch(&source.Kind{Type: &appsv1alpha1.AdvancedCronJob{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
@@ -130,11 +94,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	//also watch for BroadcastJob and create request for AdvancedCronJob if there is any change
-	err = c.Watch(&source.Kind{Type: &appsv1alpha1.BroadcastJob{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &appsv1alpha1.AdvancedCronJob{},
-	})
+	//Index
+	err = hookJobIndexer(mgr, c)
+	err = hookBroadcastJobIndexer(mgr, c)
 
 	if err != nil {
 		klog.Error(err)
@@ -203,6 +165,8 @@ func (r *ReconcileAdvancedCronJob) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return r.reconcileJob(ctx, log, advancedCronJob)
 	case appsv1alpha1.BroadcastJobTemplate:
 		return r.reconcileBroadcastJob(ctx, log, advancedCronJob)
+	default:
+		klog.Info("No template found")
 	}
 
 	return ctrl.Result{}, nil
