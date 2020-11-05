@@ -137,7 +137,7 @@ func (r *ReconcileAdvancedCronJob) reconcileBroadcastJob(ctx context.Context, lo
 		advancedCronJob.Status.Active = append(advancedCronJob.Status.Active, *jobRef)
 	}
 
-	klog.V(1).Info("broadcastjob count", "active broadcastjobs", len(activeJobs), "successful broadcastjobs", len(successfulJobs), "failed broadcastjobs", len(failedJobs))
+	klog.V(1).Info("advancedCronJob count", "active advancedCronJob", len(activeJobs), "successful advancedCronJob", len(successfulJobs), "failed advancedCronJob", len(failedJobs))
 	if err := r.Client.Status().Update(ctx, &advancedCronJob); err != nil {
 		klog.Error(err, "unable to update AdvancedCronJob status")
 		return ctrl.Result{}, err
