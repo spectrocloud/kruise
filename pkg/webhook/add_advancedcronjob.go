@@ -21,12 +21,16 @@ import (
 	"github.com/openkruise/kruise/pkg/util/gate"
 	"github.com/openkruise/kruise/pkg/webhook/advancedcronjob/mutating"
 	"github.com/openkruise/kruise/pkg/webhook/advancedcronjob/validating"
+	"k8s.io/klog"
 )
 
 func init() {
 	if !gate.ResourceEnabled(&appsv1alpha1.AdvancedCronJob{}) {
+		klog.Info("=========***************** Disabling webhook")
 		return
 	}
+
+	klog.Info("================== Adding webhook handlers")
 	addHandlers(mutating.HandlerMap)
 	addHandlers(validating.HandlerMap)
 }

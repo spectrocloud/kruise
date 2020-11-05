@@ -387,11 +387,11 @@ func (r *ReconcileAdvancedCronJob) reconcileJob(ctx context.Context, log logr.Lo
 
 	// ...and create it on the cluster
 	if err := r.Create(ctx, job); err != nil {
-		klog.Error(err, "unable to create Job for CronJob", "job", job)
+		klog.Error(err, "unable to create Job for AdvancedCronJob", "job", job)
 		return ctrl.Result{}, err
 	}
 
-	klog.V(1).Info("created Job for CronJob run", "job", job)
+	klog.V(1).Info("created Job for AdvancedCronJob run", "job", job)
 
 	/*
 		### 7: Requeue when we either see a running job or it's time for the next scheduled run
