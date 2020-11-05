@@ -46,7 +46,7 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-apps-kruise-io-v1alpha1-broadcastjob
+      path: /mutate-apps-kruise-io-v1alpha1-advancedcronjob
   failurePolicy: Fail
   name: mbroadcastjob.kb.io
   rules:

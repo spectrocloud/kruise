@@ -23,6 +23,9 @@ import (
 	"net/http"
 	"regexp"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
+
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 
 	corevalidation "k8s.io/kubernetes/pkg/apis/core/validation"
@@ -32,8 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
-
 	appsv1alpha1 "github.com/openkruise/kruise/apis/apps/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	genericvalidation "k8s.io/apimachinery/pkg/api/validation"
@@ -41,7 +42,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/kubernetes/pkg/apis/core"
 	corev1 "k8s.io/kubernetes/pkg/apis/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -86,24 +86,24 @@ func validateAdvancedCronJobSpec(spec *appsv1alpha1.AdvancedCronJobSpec, fldPath
 	out, _ := json.Marshal(spec)
 	klog.Info(fmt.Sprintf("---------- VALID validateAdvancedCronJobSpec : %s", string(out)))
 	//validate multiple template
-	isOnlyOneTemplate := false
-	if spec.JobTemplate != nil {
-		klog.Info("---------- spec.JobTemplate")
-		isOnlyOneTemplate = true
-	} else if isOnlyOneTemplate && spec.BroadcastJobTemplate != nil {
-		klog.Info("---------- isOnlyOneTemplate && spec.BroadcastJobTemplate != nil")
-		allErrs = append(allErrs, field.Invalid(fldPath.Child("spec").Child("broadcastJobTemplate"),
-			spec.BroadcastJobTemplate,
-			"either job template or broadcast job template can be present"))
-		return allErrs
-	}
+	templateCount := 0
 
 	if spec.JobTemplate != nil {
+		templateCount++
 		allErrs = append(allErrs, validateJobTemplateSpec(spec.JobTemplate, fldPath)...)
 	}
 
 	if spec.BroadcastJobTemplate != nil {
+		templateCount++
 		allErrs = append(allErrs, validateBroadcastJobTemplateSpec(spec.BroadcastJobTemplate, fldPath)...)
+	}
+
+	klog.Info(fmt.Sprintf("---------- VALID templateCount : %d", templateCount))
+	if templateCount > 1 {
+		klog.Info(fmt.Sprintf("---------- INVALID templateCount : %d", templateCount))
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("spec").Child(""),
+			spec,
+			"only one template can be present for cron task"))
 	}
 
 	klog.Info("---------- validateAdvancedCronJobSpec")
