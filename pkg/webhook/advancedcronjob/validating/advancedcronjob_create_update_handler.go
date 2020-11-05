@@ -176,13 +176,14 @@ var _ admission.Handler = &AdvancedCronJobCreateUpdateHandler{}
 
 // Handle handles admission requests.
 func (h *AdvancedCronJobCreateUpdateHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
+	klog.Info("---------- VALIDATOR Handle 1")
 	obj := &appsv1alpha1.AdvancedCronJob{}
 
 	err := h.Decoder.Decode(req, obj)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
-
+	klog.Info("---------- VALIDATOR Handle before switch")
 	switch req.AdmissionRequest.Operation {
 	case admissionv1beta1.Create:
 		if allErrs := h.validateAdvancedCronJob(obj); len(allErrs) > 0 {
