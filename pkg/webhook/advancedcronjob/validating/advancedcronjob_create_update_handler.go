@@ -18,9 +18,12 @@ package validating
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
+
+	"github.com/sirupsen/logrus"
 
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 
@@ -63,11 +66,12 @@ type AdvancedCronJobCreateUpdateHandler struct {
 }
 
 func (h *AdvancedCronJobCreateUpdateHandler) validatingAdvancedCronJobFn(ctx context.Context, obj *appsv1alpha1.AdvancedCronJob) (bool, string, error) {
-
+	logrus.Info("---------- validatingAdvancedCronJobFn")
 	allErrs := h.validateAdvancedCronJob(obj)
 	if len(allErrs) != 0 {
 		return false, "", allErrs.ToAggregate()
 	}
+	logrus.Info("---------- VALID validatingAdvancedCronJobFn")
 	return true, "allowed to be admitted", nil
 }
 
@@ -78,13 +82,18 @@ func (h *AdvancedCronJobCreateUpdateHandler) validateAdvancedCronJob(obj *appsv1
 }
 
 func validateAdvancedCronJobSpec(spec *appsv1alpha1.AdvancedCronJobSpec, fldPath *field.Path) field.ErrorList {
+	logrus.Info("---------- VALID validateAdvancedCronJobSpec")
 	allErrs := field.ErrorList{}
 
+	out, _ := json.Marshal(spec)
+	logrus.Printf("---------- VALID validateAdvancedCronJobSpec : %s", string(out))
 	//validate multiple template
 	isOnlyOneTemplate := false
 	if spec.JobTemplate != nil {
+		logrus.Info("---------- spec.JobTemplate")
 		isOnlyOneTemplate = true
 	} else if isOnlyOneTemplate && spec.BroadcastJobTemplate != nil {
+		logrus.Info("---------- isOnlyOneTemplate && spec.BroadcastJobTemplate != nil")
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("spec").Child("broadcastJobTemplate"),
 			spec.BroadcastJobTemplate,
 			"either job template or broadcast job template can be present"))
@@ -99,6 +108,7 @@ func validateAdvancedCronJobSpec(spec *appsv1alpha1.AdvancedCronJobSpec, fldPath
 		allErrs = append(allErrs, validateBroadcastJobTemplateSpec(spec.BroadcastJobTemplate, fldPath)...)
 	}
 
+	logrus.Info("---------- validateAdvancedCronJobSpec")
 	return allErrs
 }
 
