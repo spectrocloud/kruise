@@ -140,11 +140,11 @@ func (r *ReconcileAdvancedCronJob) reconcileJob(ctx context.Context, log logr.Lo
 	}
 
 	klog.V(1).Info("job count", "active jobs", len(activeJobs), "successful jobs", len(successfulJobs), "failed jobs", len(failedJobs))
-	//
-	//if err := r.Status().Update(ctx, &advancedCronJob); err != nil {
-	//	klog.Error(err, "unable to update CronJob status")
-	//	return ctrl.Result{}, err
-	//}
+
+	if err := r.Client.Status().Update(ctx, &advancedCronJob); err != nil {
+		klog.Error(err, "unable to update AdvancedCronJob status")
+		return ctrl.Result{}, err
+	}
 
 	/*
 		Once we've updated our status, we can move on to ensuring that the status of
