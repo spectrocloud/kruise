@@ -54,6 +54,9 @@ func hookBroadcastJobIndexer(mgr manager.Manager, c controller.Controller) error
 	return nil
 }
 
+// +kubebuilder:rbac:groups=apps.kruise.io,resources=broadcastjobs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps.kruise.io,resources=broadcastjobs/status,verbs=get;update;patch
+
 func (r *ReconcileAdvancedCronJob) reconcileBroadcastJob(ctx context.Context, log logr.Logger, advancedCronJob appsv1alpha1.AdvancedCronJob) (ctrl.Result, error) {
 	var childJobs appsv1alpha1.BroadcastJobList
 	if err := r.List(ctx, &childJobs, client.InNamespace(advancedCronJob.Namespace), client.MatchingFields{jobOwnerKey: advancedCronJob.Name}); err != nil {
@@ -135,11 +138,11 @@ func (r *ReconcileAdvancedCronJob) reconcileBroadcastJob(ctx context.Context, lo
 	}
 
 	klog.V(1).Info("broadcastjob count", "active broadcastjobs", len(activeJobs), "successful broadcastjobs", len(successfulJobs), "failed broadcastjobs", len(failedJobs))
-	//
-	//if err := r.Status().Update(ctx, &advancedCronJob); err != nil {
-	//	klog.Error(err, "unable to update CronJob status")
-	//	return ctrl.Result{}, err
-	//}
+
+	if err := r.Status().Update(ctx, &advancedCronJob); err != nil {
+		klog.Error(err, "unable to update CronJob status")
+		return ctrl.Result{}, err
+	}
 
 	/*
 		Once we've updated our status, we can move on to ensuring that the status of

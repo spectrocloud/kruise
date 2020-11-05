@@ -56,6 +56,9 @@ func hookJobIndexer(mgr manager.Manager, c controller.Controller) error {
 	return nil
 }
 
+// +kubebuilder:rbac:groups=batch,resources=advancedcronjobs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch,resources=advancedcronjobs/status,verbs=get;update;patch
+
 func (r *ReconcileAdvancedCronJob) reconcileJob(ctx context.Context, log logr.Logger, advancedCronJob appsv1alpha1.AdvancedCronJob) (ctrl.Result, error) {
 	var childJobs batchv1.JobList
 	if err := r.List(ctx, &childJobs, client.InNamespace(advancedCronJob.Namespace), client.MatchingFields{jobOwnerKey: advancedCronJob.Name}); err != nil {
