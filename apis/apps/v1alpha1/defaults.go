@@ -101,10 +101,6 @@ func SetDefaultsAdvancedCronJob(obj *AdvancedCronJob) {
 	if obj.Spec.BroadcastJobTemplate != nil {
 		SetDefaultPodSpec(&obj.Spec.BroadcastJobTemplate.Spec.Template.Spec)
 	}
-
-	if obj.Spec.Schedule == "" {
-		obj.Spec.CompletionPolicy.Type = Always
-	}
 }
 
 // SetDefaults_BroadcastJob set default values for BroadcastJob.
